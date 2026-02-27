@@ -1,0 +1,11 @@
+.env
+venv/
+__pycache__/
+*.html
+*.js
+*.mp4
+*.part
+*.ytdl
+*.txt
+gem/
+hydrax-abyss-research-master/

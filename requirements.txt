@@ -1,0 +1,6 @@
+python-telegram-bot
+playwright
+yt-dlp
+beautifulsoup4
+httpx
+python-dotenv

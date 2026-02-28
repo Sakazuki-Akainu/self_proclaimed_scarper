@@ -1,11 +1,14 @@
 import os
 from dotenv import load_dotenv
-from urllib.parse import quote  # Add this
 
 load_dotenv()
 
 class Config:
     BOT_TOKEN = os.getenv('BOT_TOKEN')
+    # Added API ID and HASH for 2GB Pyrogram uploads
+    API_ID = int(os.getenv('API_ID', '0'))
+    API_HASH = os.getenv('API_HASH', '')
+    
     ADMIN_IDS = [int(id.strip()) for id in os.getenv('ADMIN_IDS', '').split(',') if id.strip()]
     REQUEST_DELAY = float(os.getenv('REQUEST_DELAY', 2))
     

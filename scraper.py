@@ -30,7 +30,6 @@ class AnimeWorldScraper:
     async def get_raw_video(self, iframe_url: str) -> Optional[str]:
         print(f"\n[1/5] 🌐 Starting extraction for: {iframe_url}")
         m3u8_url = None
-        seen_requests = 0
         
         async with async_playwright() as p:
             print("[2/5] 🤖 Launching stealth browser...")
@@ -47,10 +46,9 @@ class AnimeWorldScraper:
             page = await context.new_page()
 
             async def handle_request(request):
-                nonlocal m3u8_url, seen_requests
+                nonlocal m3u8_url
                 url = request.url
                 if (".m3u8" in url or ".mp4" in url):
-                    seen_requests += 1
                     if not m3u8_url: 
                         m3u8_url = url
                         print(f"✅ [FOUND] Video Link Sniffed: {url[:70]}...")
@@ -102,7 +100,7 @@ class AnimeWorldScraper:
             return []
 
     async def get_seasons(self, url: str) -> List[Dict]:
-        """Fixed: Uses the accurate Colab selectors to find all seasons"""
+        """Identical to Colab: Finds all seasons correctly"""
         soup = await self._get(url)
         if not soup: return []
         seasons = []
@@ -114,12 +112,11 @@ class AnimeWorldScraper:
         return seasons
 
     async def get_episodes(self, anime_url: str, season_id: str = "1") -> List[Dict]:
-        """Fixed: Incorporates the AJAX call required to load non-default seasons"""
+        """Identical to Colab: Uses AJAX for hidden seasons and removes duplicate links"""
         try:
             soup = await self._get(anime_url)
             if not soup: return []
             raw_episodes = []
-            seen_urls = set()
             
             ep_container = soup.select_one('ul#episode_by_temp, ul.post-lst')
             if ep_container:
@@ -131,21 +128,16 @@ class AnimeWorldScraper:
                         if not episode_url.startswith('http'): 
                             episode_url = self.base_url + episode_url if episode_url.startswith('/') else f"{self.base_url}/{episode_url}"
                         
-                        clean_url = episode_url.rstrip('/')
-                        if clean_url in seen_urls: continue
-                        
                         num_elem = ep_item.select_one('.num-epi, .ep-number')
                         num_str = num_elem.get_text(strip=True) if num_elem else ""
                         title_elem = ep_item.select_one('.ep-title, .episode-title, .title, h2.entry-title, h3, h2')
                         title_str = title_elem.get_text(strip=True) if title_elem else f"Episode {num_str}"
                         
                         if not num_str.startswith(f"{season_id}x") and num_str != "": continue
-                        
-                        seen_urls.add(clean_url)
                         raw_episodes.append({'number': num_str, 'title': title_str, 'url': episode_url})
                     except: continue
 
-            # If no episodes found for the requested season, do the AJAX call
+            # The AJAX call for seasons not loaded on the main page
             if not raw_episodes:
                 post_id = ""
                 season_link = soup.select_one(f'a[data-season="{season_id}"]')
@@ -175,16 +167,22 @@ class AnimeWorldScraper:
                                 if not link.startswith('http'): 
                                     link = self.base_url + link if link.startswith('/') else f"{self.base_url}/{link}"
                                 
-                                clean_link = link.rstrip('/')
-                                if clean_link in seen_urls: continue
-                                seen_urls.add(clean_link)
-                                
                                 title_tag = item.select_one('.entry-title, .title, h2, h3')
                                 num_tag = item.select_one('.num-epi')
                                 num_str = num_tag.get_text(strip=True) if num_tag else ""
                                 title_str = title_tag.get_text(strip=True) if title_tag else f"Episode {num_str}"
                                 raw_episodes.append({'title': title_str, 'url': link})
-            return raw_episodes
+
+            # Clean duplicates (Exactly as your Colab code does it)
+            final_episodes = []
+            seen_links = set()
+            for ep in raw_episodes:
+                clean_url = ep['url'].strip('/')
+                if clean_url not in seen_links:
+                    seen_links.add(clean_url)
+                    final_episodes.append(ep)
+            return final_episodes
+
         except: return []
 
     async def get_episode_video_link(self, episode_url: str) -> Optional[str]:
